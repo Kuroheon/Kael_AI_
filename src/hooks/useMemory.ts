@@ -48,15 +48,18 @@ export function useMemory() {
   }, []);
 
   const retrieveRelevant = useCallback((query: string, limit = 5): Memory[] => {
-    const queryWords = query.toLowerCase().split(' ').filter(w => w.length > 3);
+    const queryWords = query.toLowerCase().split(/\s+/).filter(w => w.length > 3);
     const scored = memories.map(m => {
-      const simWords = m.embedding_sim.toLowerCase().split(' ');
-      const contentWords = m.content.toLowerCase().split(' ');
+      const simText = (m.embedding_sim ?? '').toString();
+      const contentText = (m.content ?? '').toString();
+      const simWords = simText.toLowerCase().split(/\s+/).filter(Boolean);
+      const contentWords = contentText.toLowerCase().split(/\s+/).filter(Boolean);
+      const importance = typeof m.importance === 'number' ? m.importance : 1;
       const score = queryWords.reduce((acc, w) => {
         if (simWords.some(s => s.includes(w))) acc += 2;
         if (contentWords.some(c => c.includes(w))) acc += 1;
         return acc;
-      }, 0) * m.importance;
+      }, 0) * importance;
       return { memory: m, score };
     });
     return scored
