@@ -4,42 +4,54 @@
 
 ## Required Supabase tables (minimal)
 
-The application expects the following minimal tables and columns in Supabase:
+The application expects the following minimal tables and columns in Supabase. IDs are stored as text (defaulting to a generated UUID text) so that both server-generated UUIDs and client temporary IDs (e.g. `local-12345`) are accepted.
 
 sessions
-- id (text/uuid primary key)
-- title (text)
+- id (text primary key, default gen_random_uuid()::text)
+- title (text, NOT NULL)
 - summary (text)
 - created_at (timestamp)
 - updated_at (timestamp)
 
 messages
-- id
-- session_id
-- role
-- content
-- tokens
-- tool_calls
-- metadata
-- created_at
+- id (text primary key, default gen_random_uuid()::text)
+- session_id (text) - references sessions(id)
+- role (text)
+- content (text)
+- tokens (int)
+- tool_calls (jsonb)
+- metadata (jsonb)
+- created_at (timestamp)
 
 memories
-- id
-- session_id
-- content
-- category
-- importance
-- embedding_sim
-- created_at
+- id (text primary key, default gen_random_uuid()::text)
+- session_id (text) - references sessions(id)
+- content (text)
+- category (text)
+- importance (int)
+- embedding_sim (text)
+- created_at (timestamp)
 
 tasks
-- id
-- session_id
-- title
+- id (text primary key, default gen_random_uuid()::text)
+- session_id (text) - references sessions(id)
+- title (text)
+- description (text)
 - steps (jsonb)
-- status
-- current_step
-- created_at
-- updated_at
+- status (text)
+- current_step (int)
+- created_at (timestamp)
+- updated_at (timestamp)
 
-Add these tables in your Supabase project before running the app locally.
+audit_logs
+- id (text primary key, default gen_random_uuid()::text)
+- action (text)
+- actor (text)
+- target_type (text)
+- target_id (text)
+- details (jsonb)
+- risk_level (text)
+- approved_by (text)
+- created_at (timestamp)
+
+Add these tables in your Supabase project (or run `scripts/supabase/init.sql`) before running the app locally.
