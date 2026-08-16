@@ -8,12 +8,22 @@ export function useSession() {
   const [loading, setLoading] = useState(true);
 
   const fetchSessions = useCallback(async () => {
-    const { data } = await supabase
-      .from('sessions')
-      .select('*')
-      .order('updated_at', { ascending: false });
-    if (data) setSessions(data as Session[]);
-    setLoading(false);
+    try {
+      const { data, error } = await supabase
+        .from('sessions')
+        .select('*')
+        .order('updated_at', { ascending: false });
+      if (error) {
+        console.warn('Failed to fetch sessions from Supabase:', error);
+        setSessions(prev => prev);
+      } else if (data) {
+        setSessions(data as Session[]);
+      }
+    } catch (err) {
+      console.warn('Error fetching sessions:', err);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => {
@@ -21,37 +31,77 @@ export function useSession() {
   }, [fetchSessions]);
 
   const createSession = useCallback(async (title = 'New Session') => {
-    const { data, error } = await supabase
-      .from('sessions')
-      .insert({ title })
-      .select()
-      .single();
-    if (error || !data) return null;
-    const session = data as Session;
-    setSessions(prev => [session, ...prev]);
-    setActiveSession(session);
-    return session;
+    // Try to create on Supabase; if it fails, fall back to a local session so UI stays responsive
+    try {
+      const { data, error } = await supabase
+        .from('sessions')
+        .insert({ title })
+        .select()
+        .single();
+      if (error || !data) {
+        console.warn('Supabase createSession failed, falling back to local session:', error);
+        const fallback: Session = {
+          id: typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : String(Date.now()),
+          title,
+          summary: '',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+        setSessions(prev => [fallback, ...prev]);
+        setActiveSession(fallback);
+        return fallback;
+      }
+
+      const session = data as Session;
+      setSessions(prev => [session, ...prev]);
+      setActiveSession(session);
+      return session;
+    } catch (err) {
+      console.error('Error creating session:', err);
+      const fallback: Session = {
+        id: typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : String(Date.now()),
+        title,
+        summary: '',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+      setSessions(prev => [fallback, ...prev]);
+      setActiveSession(fallback);
+      return fallback;
+    }
   }, []);
 
   const updateSessionTitle = useCallback(async (id: string, title: string) => {
-    await supabase
-      .from('sessions')
-      .update({ title, updated_at: new Date().toISOString() })
-      .eq('id', id);
+    try {
+      await supabase
+        .from('sessions')
+        .update({ title, updated_at: new Date().toISOString() })
+        .eq('id', id);
+    } catch (err) {
+      console.warn('Failed to update session title on Supabase:', err);
+    }
     setSessions(prev => prev.map(s => s.id === id ? { ...s, title } : s));
     setActiveSession(prev => prev?.id === id ? { ...prev, title } : prev);
   }, []);
 
   const updateSessionSummary = useCallback(async (id: string, summary: string) => {
-    await supabase
-      .from('sessions')
-      .update({ summary, updated_at: new Date().toISOString() })
-      .eq('id', id);
+    try {
+      await supabase
+        .from('sessions')
+        .update({ summary, updated_at: new Date().toISOString() })
+        .eq('id', id);
+    } catch (err) {
+      console.warn('Failed to update session summary on Supabase:', err);
+    }
     setActiveSession(prev => prev?.id === id ? { ...prev, summary } : prev);
   }, []);
 
   const deleteSession = useCallback(async (id: string) => {
-    await supabase.from('sessions').delete().eq('id', id);
+    try {
+      await supabase.from('sessions').delete().eq('id', id);
+    } catch (err) {
+      console.warn('Failed to delete session from Supabase, removing locally:', err);
+    }
     setSessions(prev => prev.filter(s => s.id !== id));
     if (activeSession?.id === id) setActiveSession(null);
   }, [activeSession]);
