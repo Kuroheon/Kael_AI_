@@ -31,23 +31,17 @@ export function useSession() {
   }, [fetchSessions]);
 
   const createSession = useCallback(async (title = 'New Session') => {
-    // Generate client-side id to avoid DB insert failures when the table requires a non-null id
-    const newId = (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function')
-      ? crypto.randomUUID()
-      : `local-${Date.now()}`;
-
     // Try to create on Supabase; if it fails, fall back to a local session so UI stays responsive
     try {
       const { data, error } = await supabase
         .from('sessions')
-        .insert({ id: newId, title })
+        .insert({ title })
         .select()
         .single();
-
       if (error || !data) {
         console.warn('Supabase createSession failed, falling back to local session:', error);
         const fallback: Session = {
-          id: newId,
+          id: typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : String(Date.now()),
           title,
           summary: '',
           created_at: new Date().toISOString(),
@@ -65,7 +59,7 @@ export function useSession() {
     } catch (err) {
       console.error('Error creating session:', err);
       const fallback: Session = {
-        id: newId,
+        id: typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : String(Date.now()),
         title,
         summary: '',
         created_at: new Date().toISOString(),
